@@ -1,0 +1,67 @@
+# docker-compose.yml — the one-command self-host (WP1: deployment
+# & API trust).
+#
+#   docker compose up -d
+#   → http://localhost:3000  (migrations apply automatically on
+#     boot; the 366-template library syncs itself from code)
+#
+# Two containers:
+#   db    — Postgres 17 (the only state; Manimaker stores media as
+#           bytea columns, so there is NO app volume — losing the
+#           app container loses nothing)
+#   app   — the image built from ./Dockerfile
+#
+# Bringing your own database? Comment the db service out, point
+# DATABASE_URL at it and remove depends_on. Supabase / Neon / RDS
+# URLs work as-is (src/lib/db-url.ts auto-applies TLS + pooler
+# flags). For the compose-internal db the URL pins sslmode=disable
+# because db-url.ts would otherwise treat the non-localhost
+# hostname "db" as remote and force TLS — which plain Postgres
+# does not speak inside the compose network.
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: manimaker
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env — see .env.docker.example}
+      POSTGRES_DB: manimaker
+    volumes:
+      - manimaker-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U manimaker -d manimaker"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # sslmode=disable: the in-network "db" hostname is not
+      # localhost, so db-url.ts would force TLS on it — pinned off
+      # because compose-internal Postgres is plaintext by design.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://manimaker:${POSTGRES_PASSWORD}@db:5432/manimaker?sslmode=disable}
+      # ── optional: copy any of these from .env.docker.example ──
+      ZAI_BASE_URL: ${ZAI_BASE_URL:-}
+      ZAI_API_KEY: ${ZAI_API_KEY:-}
+      PEXELS_API_KEY: ${PEXELS_API_KEY:-}
+      PIXABAY_API_KEY: ${PIXABAY_API_KEY:-}
+      FREESOUND_API_KEY: ${FREESOUND_API_KEY:-}
+      MANIMAKER_MCP_TOKEN: ${MANIMAKER_MCP_TOKEN:-}
+      MANIMAKER_PLUGINS: ${MANIMAKER_PLUGINS:-}
+      MANIMAKER_RATE_LIMITS: ${MANIMAKER_RATE_LIMITS:-}
+      MANIMAKER_SSE_MAX_PER_IP: ${MANIMAKER_SSE_MAX_PER_IP:-}
+      MANIMAKER_LOG: ${MANIMAKER_LOG:-}
+      MANIMAKER_ERROR_WEBHOOK_URL: ${MANIMAKER_ERROR_WEBHOOK_URL:-}
+      MANIMAKER_TEMPLATE_SYNC: ${MANIMAKER_TEMPLATE_SYNC:-}
+      MANIMAKER_ADMIN_USERS: ${MANIMAKER_ADMIN_USERS:-}
+    ports:
+      - "${MANIMAKER_PORT:-3000}:3000"
+
+volumes:
+  manimaker-db:
