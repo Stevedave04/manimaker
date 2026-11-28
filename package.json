@@ -28,8 +28,6 @@
   },
   "dependencies": {
     "@imgly/background-removal": "^1.7.0",
-    "@neon/config": "^1.14.8",
-    "@neon/env": "^2.1.11",
     "@prisma/adapter-pg": "^6.16.0",
     "@prisma/client": "^6.16.0",
     "@radix-ui/react-dialog": "^1.1.14",
@@ -57,6 +55,8 @@
     "zustand": "^5.1.0"
   },
   "devDependencies": {
+    "@neon/config": "^1.14.8",
+    "@neon/env": "^2.1.11",
     "@netlify/plugin-nextjs": "^5.16.6",
     "@opennextjs/cloudflare": "^1.20.17",
     "@playwright/test": "^1.65.0",
